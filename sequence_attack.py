@@ -22,20 +22,35 @@ def new_falling_segment(base_seq, seg_len):
         segment = base_seq[start : start + seg_len]
 
     mutated = []
-    for ch in segment:
+    deletions = 0
+    snps = 0
+    insertions = 0
+    for base in segment:
         roll = random.random()
+
         if roll < 0.01:
+            # Deletion
+            deletions += 1
             continue
         if roll < 0.02:
-            mutated.append(random.choice([n for n in NUCLEOTIDES if n != ch]))
+            # SNP
+            mutated.append(random.choice([n for n in NUCLEOTIDES if n != base]))
+            snps += 1
         elif roll < 0.03:
-            mutated.append(ch)
+            # Insertion
+            mutated.append(base)
             mutated.append(random.choice(NUCLEOTIDES))
+            insertions += 1
         else:
-            mutated.append(ch)
+            # Unchanged
+            mutated.append(base)
     if not mutated:
         mutated.append(random.choice(NUCLEOTIDES))
-    return mutated, start
+    return mutated, start, {"deletions": deletions, "snps": snps, "insertions": insertions}
+
+
+def centered_fall_x(play_width, seq_len):
+    return clamp((play_width - seq_len) // 2, 0, max(0, play_width - seq_len))
 
 
 def insert_space(seq, cursor):
@@ -61,13 +76,24 @@ def score_alignment(falling, fall_x, bottom, bottom_y):
 
 def blink_message(stdscr, text, times):
     height, width = stdscr.getmaxyx()
-    y = height // 2
-    x = max(0, (width - len(text)) // 2)
+    if isinstance(text, (list, tuple)):
+        lines = list(text)
+    else:
+        lines = [text]
+    max_len = max(len(line) for line in lines)
+    start_y = (height // 2) - (len(lines) // 2)
+    start_x = max(0, (width - max_len) // 2)
     for _ in range(times):
-        stdscr.addstr(y, x, text, curses.A_BOLD)
+        for i, line in enumerate(lines):
+            y = start_y + i
+            x = max(0, start_x + (max_len - len(line)) // 2)
+            stdscr.addstr(y, x, line, curses.A_BOLD)
         stdscr.refresh()
-        time.sleep(0.18)
-        stdscr.addstr(y, x, " " * len(text))
+        time.sleep(0.88)
+        for i, line in enumerate(lines):
+            y = start_y + i
+            x = max(0, start_x + (max_len - len(line)) // 2)
+            stdscr.addstr(y, x, " " * len(line))
         stdscr.refresh()
         time.sleep(0.18)
 
@@ -103,17 +129,30 @@ def game(stdscr):
     base_seq = make_base_sequence(play_width)
     bottom_seq = base_seq[:]
 
-    seg_len = max(8, play_width // 2)
-    falling_seq, fall_base_start = new_falling_segment(base_seq, seg_len)
-    fall_x = clamp(fall_base_start, 0, play_width - len(falling_seq))
+    seg_len = 20
+    falling_seq, _, mutation_counts = new_falling_segment(base_seq, seg_len)
+    fall_x = centered_fall_x(play_width, len(falling_seq))
     fall_y = top_y
 
     score = 0
+    multiplier = 1
+    edits_remaining = sum(mutation_counts.values())
     mode = "move"  # move, edit_top
     cursor = 0
     last_tick = time.time()
     base_fall_delay = 0.5
     fall_delay = base_fall_delay
+
+    if any(mutation_counts.values()):
+        lines = ["! Mutations Detected !"]
+        if mutation_counts["deletions"]:
+            lines.append("Deletions x{}".format(mutation_counts["deletions"]))
+        if mutation_counts["snps"]:
+            lines.append("SNPs x{}".format(mutation_counts["snps"]))
+        if mutation_counts["insertions"]:
+            lines.append("Insertions x{}".format(mutation_counts["insertions"]))
+        blink_message(stdscr, lines, 3)
+        last_tick = time.time()
 
     while True:
         now = time.time()
@@ -123,15 +162,29 @@ def game(stdscr):
 
         if fall_y >= bottom_y:
             delta, perfect = score_alignment(falling_seq, fall_x, bottom_seq, bottom_y)
-            score += delta
+            score += delta * multiplier
             if perfect:
-                blink_message(stdscr, "PERFECT ALIGNMENT!", 3)
+                blink_message(stdscr, ["PERFECT ALIGNMENT!", "+100"], 3)
+                multiplier *= 2
+            else:
+                multiplier = 1
             fall_y = top_y
-            falling_seq, fall_base_start = new_falling_segment(base_seq, seg_len)
-            fall_x = clamp(fall_base_start, 0, play_width - len(falling_seq))
+            falling_seq, _, mutation_counts = new_falling_segment(base_seq, seg_len)
+            fall_x = centered_fall_x(play_width, len(falling_seq))
             fall_delay = base_fall_delay
             mode = "move"
             cursor = 0
+            edits_remaining = sum(mutation_counts.values())
+            if any(mutation_counts.values()):
+                lines = ["! Mutations Detected !"]
+                if mutation_counts["deletions"]:
+                    lines.append("Deletions x{}".format(mutation_counts["deletions"]))
+                if mutation_counts["snps"]:
+                    lines.append("SNPs x{}".format(mutation_counts["snps"]))
+                if mutation_counts["insertions"]:
+                    lines.append("Insertions x{}".format(mutation_counts["insertions"]))
+                blink_message(stdscr, lines, 3)
+                last_tick = time.time()
 
         key = stdscr.getch()
         if key != -1:
@@ -153,17 +206,25 @@ def game(stdscr):
             elif mode == "edit_top" and key == curses.KEY_RIGHT:
                 cursor = clamp(cursor + 1, 0, len(falling_seq) - 1)
             elif mode == "edit_top" and key == ord(" "):
-                if len(falling_seq) < play_width:
+                if edits_remaining > 0 and len(falling_seq) < play_width:
                     insert_space(falling_seq, cursor)
                     fall_x = clamp(fall_x, 0, play_width - len(falling_seq))
+                    edits_remaining -= 1
             elif mode == "edit_top" and key in (curses.KEY_BACKSPACE, 127, 8):
-                if falling_seq:
+                if edits_remaining > 0 and falling_seq:
                     falling_seq.pop(cursor)
                     fall_x = clamp(fall_x, 0, play_width - len(falling_seq))
                     cursor = clamp(cursor, 0, len(falling_seq) - 1)
+                    edits_remaining -= 1
+            elif mode == "edit_top" and key in (ord("a"), ord("A"), ord("t"), ord("T"), ord("g"), ord("G"), ord("c"), ord("C")):
+                if edits_remaining > 0 and falling_seq:
+                    new_base = chr(key).upper()
+                    if new_base in NUCLEOTIDES and falling_seq[cursor] != new_base:
+                        falling_seq[cursor] = new_base
+                        edits_remaining -= 1
 
         stdscr.erase()
-        stdscr.addstr(0, 1, "SequenceAttack  |  Score: {}".format(score))
+        stdscr.addstr(0, 1, "SequenceAttack  |  Score: {}  |  Multiplier: x{}".format(score, multiplier))
         stdscr.addstr(
             1,
             1,
