@@ -165,7 +165,7 @@ def game(stdscr):
             score += delta * multiplier
             if perfect:
                 multiplier *= 2
-                blink_message(stdscr, ["PERFECT ALIGNMENT!", "+50", f"x{multiplier} multiplier"], 3)
+                blink_message(stdscr, ["PERFECT ALIGNMENT", "+50", f"x{multiplier} MULTIPLIER"], 3)
             else:
                 multiplier = 1
             fall_y = top_y
