@@ -89,13 +89,13 @@ def blink_message(stdscr, text, times):
             x = max(0, start_x + (max_len - len(line)) // 2)
             stdscr.addstr(y, x, line, curses.A_BOLD)
         stdscr.refresh()
-        time.sleep(0.88)
+        time.sleep(0.5)
         for i, line in enumerate(lines):
             y = start_y + i
             x = max(0, start_x + (max_len - len(line)) // 2)
             stdscr.addstr(y, x, " " * len(line))
         stdscr.refresh()
-        time.sleep(0.18)
+        time.sleep(0.1)
 
 
 def draw_sequence(stdscr, y, x, seq, highlight_idx=None):
