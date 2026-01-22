@@ -70,7 +70,7 @@ def score_alignment(falling, fall_x, bottom, bottom_y):
                 score -= 1
     perfect = aligned > 0 and aligned == sum(1 for i, ch in enumerate(falling) if 0 <= fall_x + i < len(bottom) and ch != " " and bottom[fall_x + i] != " ")
     if perfect:
-        score += 100
+        score += 50
     return score, perfect
 
 
@@ -164,7 +164,7 @@ def game(stdscr):
             delta, perfect = score_alignment(falling_seq, fall_x, bottom_seq, bottom_y)
             score += delta * multiplier
             if perfect:
-                blink_message(stdscr, ["PERFECT ALIGNMENT!", "+100"], 3)
+                blink_message(stdscr, ["PERFECT ALIGNMENT!", "+50"], 3)
                 multiplier *= 2
             else:
                 multiplier = 1
