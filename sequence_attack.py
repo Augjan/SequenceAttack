@@ -1,8 +1,11 @@
 import curses
+import json
 import random
 import time
 
 NUCLEOTIDES = ["A", "T", "G", "C"]
+LEADERBOARD_PATH = "leaderboard.json"
+MAX_NAME_LEN = 12
 
 
 def make_base_sequence(width):
@@ -104,6 +107,118 @@ def draw_sequence(stdscr, y, x, seq, highlight_idx=None):
         stdscr.addch(y, x + i, ch, attr)
 
 
+def load_leaderboard():
+    try:
+        with open(LEADERBOARD_PATH, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        if isinstance(data, list):
+            return [
+                {"name": item.get("name", ""), "score": int(item.get("score", 0))}
+                for item in data
+                if isinstance(item, dict)
+            ]
+    except (OSError, ValueError):
+        return []
+    return []
+
+
+def save_leaderboard(entries):
+    with open(LEADERBOARD_PATH, "w", encoding="utf-8") as handle:
+        json.dump(entries, handle, indent=2)
+
+
+def sorted_leaderboard(entries):
+    return sorted(entries, key=lambda item: (-item["score"], item["name"].lower()))
+
+
+def add_leaderboard_entry(name, score):
+    entries = load_leaderboard()
+    entries.append({"name": name, "score": score})
+    entries = sorted_leaderboard(entries)
+    save_leaderboard(entries)
+    return entries
+
+
+def prompt_name(stdscr, score):
+    stdscr.nodelay(False)
+    curses.curs_set(1)
+    name = ""
+    while True:
+        stdscr.erase()
+        height, width = stdscr.getmaxyx()
+        title = "GAME OVER"
+        subtitle = "Final Score: {}".format(score)
+        prompt = "Enter name (A-Z only):"
+        name_line = name if name else "_"
+        stdscr.addstr(height // 2 - 2, max(0, (width - len(title)) // 2), title, curses.A_BOLD)
+        stdscr.addstr(height // 2 - 1, max(0, (width - len(subtitle)) // 2), subtitle)
+        stdscr.addstr(height // 2 + 1, max(0, (width - len(prompt)) // 2), prompt)
+        stdscr.addstr(height // 2 + 2, max(0, (width - len(name_line)) // 2), name_line)
+        stdscr.refresh()
+
+        key = stdscr.getch()
+        if key in (curses.KEY_ENTER, 10, 13):
+            if name:
+                curses.curs_set(0)
+                return name
+        elif key in (27,):
+            curses.curs_set(0)
+            return ""
+        elif key in (curses.KEY_BACKSPACE, 127, 8):
+            name = name[:-1]
+        else:
+            ch = chr(key) if 0 <= key <= 255 else ""
+            if ch.isascii() and ch.isalpha() and len(name) < MAX_NAME_LEN:
+                name += ch
+
+
+def show_leaderboard(stdscr, entries):
+    stdscr.nodelay(False)
+    stdscr.erase()
+    height, width = stdscr.getmaxyx()
+    title = "LEADERBOARD"
+    stdscr.addstr(1, max(0, (width - len(title)) // 2), title, curses.A_BOLD)
+    if not entries:
+        msg = "No scores yet."
+        stdscr.addstr(3, max(0, (width - len(msg)) // 2), msg)
+    else:
+        start_y = 3
+        for idx, entry in enumerate(entries[: min(len(entries), height - start_y - 2)], start=1):
+            line = "{:>2}. {:<12} {:>6}".format(idx, entry["name"], entry["score"])
+            stdscr.addstr(start_y + idx - 1, max(0, (width - len(line)) // 2), line)
+    footer = "Press any key to return"
+    stdscr.addstr(height - 2, max(0, (width - len(footer)) // 2), footer)
+    stdscr.refresh()
+    stdscr.getch()
+
+
+def menu(stdscr):
+    stdscr.nodelay(False)
+    options = ["Start", "Leaderboard"]
+    selected = 0
+    while True:
+        stdscr.erase()
+        height, width = stdscr.getmaxyx()
+        title = "SequenceAttack"
+        stdscr.addstr(1, max(0, (width - len(title)) // 2), title, curses.A_BOLD)
+        for idx, option in enumerate(options):
+            label = f"[ {option} ]" if idx == selected else f"  {option}  "
+            stdscr.addstr(3 + idx, max(0, (width - len(label)) // 2), label)
+        footer = "Use UP/DOWN + ENTER (Q to quit)"
+        stdscr.addstr(height - 2, max(0, (width - len(footer)) // 2), footer)
+        stdscr.refresh()
+
+        key = stdscr.getch()
+        if key in (ord("q"), ord("Q")):
+            return None
+        if key in (curses.KEY_UP, ord("k"), ord("K")):
+            selected = (selected - 1) % len(options)
+        elif key in (curses.KEY_DOWN, ord("j"), ord("J")):
+            selected = (selected + 1) % len(options)
+        elif key in (curses.KEY_ENTER, 10, 13):
+            return options[selected]
+
+
 def game(stdscr):
     curses.curs_set(0)
     stdscr.nodelay(True)
@@ -164,8 +279,11 @@ def game(stdscr):
             delta, perfect = score_alignment(falling_seq, fall_x, bottom_seq, bottom_y)
             score += delta * multiplier
             if delta < 0:
-                blink_message(stdscr, ["TERRIBLE ALIGNMENT", "GAME OVER", f"FINAL SCORE: {score}"], 3)
-                break
+                name = prompt_name(stdscr, score)
+                if name:
+                    entries = add_leaderboard_entry(name, score)
+                    show_leaderboard(stdscr, entries)
+                return
             if perfect:
                 multiplier *= 2
                 blink_message(stdscr, ["PERFECT ALIGNMENT", "+50", f"x{multiplier} MULTIPLIER"], 3)
@@ -193,7 +311,7 @@ def game(stdscr):
         key = stdscr.getch()
         if key != -1:
             if key in (ord("q"), ord("Q")):
-                break
+                return
             elif key == curses.KEY_UP:
                 mode = "edit_top"
                 cursor = clamp(cursor, 0, len(falling_seq) - 1)
@@ -249,7 +367,18 @@ def game(stdscr):
 
 
 def main():
-    curses.wrapper(game)
+    def run_app(stdscr):
+        while True:
+            choice = menu(stdscr)
+            if choice is None:
+                break
+            if choice == "Leaderboard":
+                entries = sorted_leaderboard(load_leaderboard())
+                show_leaderboard(stdscr, entries)
+            elif choice == "Start":
+                game(stdscr)
+
+    curses.wrapper(run_app)
 
 
 if __name__ == "__main__":
