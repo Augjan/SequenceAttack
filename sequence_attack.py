@@ -164,8 +164,8 @@ def game(stdscr):
             delta, perfect = score_alignment(falling_seq, fall_x, bottom_seq, bottom_y)
             score += delta * multiplier
             if perfect:
-                blink_message(stdscr, ["PERFECT ALIGNMENT!", "+50"], 3)
                 multiplier *= 2
+                blink_message(stdscr, ["PERFECT ALIGNMENT!", "+50", f"x{multiplier} multiplier"], 3)
             else:
                 multiplier = 1
             fall_y = top_y
