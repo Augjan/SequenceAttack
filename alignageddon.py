@@ -6,7 +6,7 @@ import time
 NUCLEOTIDES = ["A", "T", "G", "C"]
 LEADERBOARD_PATH = "leaderboard.json"
 MAX_NAME_LEN = 12
-
+GAME_TITLE = "Alignageddon"
 
 def make_base_sequence(width):
     return [random.choice(NUCLEOTIDES) for _ in range(width)]
@@ -147,7 +147,7 @@ def prompt_name(stdscr, score):
         stdscr.erase()
         height, width = stdscr.getmaxyx()
         title = "GAME OVER"
-        subtitle = "Final Score: {}".format(score)
+        subtitle = f"Final Score: {score}"
         prompt = "Enter name (A-Z only):"
         name_line = name if name else "_"
         stdscr.addstr(height // 2 - 2, max(0, (width - len(title)) // 2), title, curses.A_BOLD)
@@ -199,7 +199,7 @@ def menu(stdscr):
     while True:
         stdscr.erase()
         height, width = stdscr.getmaxyx()
-        title = "SequenceAttack"
+        title = GAME_TITLE
         stdscr.addstr(1, max(0, (width - len(title)) // 2), title, curses.A_BOLD)
         for idx, option in enumerate(options):
             label = f"[ {option} ]" if idx == selected else f"  {option}  "
@@ -261,11 +261,11 @@ def game(stdscr):
     if any(mutation_counts.values()):
         lines = ["! Mutations Detected !"]
         if mutation_counts["deletions"]:
-            lines.append("Deletions x{}".format(mutation_counts["deletions"]))
+            lines.append(f"Deletions x{mutation_counts["deletions"]}")
         if mutation_counts["snps"]:
-            lines.append("SNPs x{}".format(mutation_counts["snps"]))
+            lines.append(f"SNPs x{mutation_counts["snps"]}")
         if mutation_counts["insertions"]:
-            lines.append("Insertions x{}".format(mutation_counts["insertions"]))
+            lines.append(f"Insertions x{mutation_counts["insertions"]}")
         blink_message(stdscr, lines, 3)
         last_tick = time.time()
 
@@ -300,11 +300,11 @@ def game(stdscr):
             if any(mutation_counts.values()):
                 lines = ["! Mutations Detected !"]
                 if mutation_counts["deletions"]:
-                    lines.append("Deletions x{}".format(mutation_counts["deletions"]))
+                    lines.append(f"Deletions x{mutation_counts["deletions"]}")
                 if mutation_counts["snps"]:
-                    lines.append("SNPs x{}".format(mutation_counts["snps"]))
+                    lines.append(f"SNPs x{mutation_counts["snps"]}")
                 if mutation_counts["insertions"]:
-                    lines.append("Insertions x{}".format(mutation_counts["insertions"]))
+                    lines.append(f"Insertions x{mutation_counts["insertions"]}")
                 blink_message(stdscr, lines, 3)
                 last_tick = time.time()
 
@@ -346,7 +346,7 @@ def game(stdscr):
                         edits_remaining -= 1
 
         stdscr.erase()
-        stdscr.addstr(0, 1, "SequenceAttack  |  Score: {}  |  Multiplier: x{}".format(score, multiplier))
+        stdscr.addstr(0, 1, f"{GAME_TITLE}  |  Score: {score}  |  Multiplier: x{multiplier}")
         stdscr.addstr(
             1,
             1,
