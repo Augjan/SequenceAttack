@@ -217,7 +217,15 @@ def menu(stdscr):
             selected = (selected + 1) % len(options)
         elif key in (curses.KEY_ENTER, 10, 13):
             return options[selected]
-
+def mutation_warning(mutation_counts):
+    lines = ["! Mutations Detected !"]
+    if mutation_counts["deletions"]:
+        lines.append("Deletions x{}".format(mutation_counts["deletions"]))
+    if mutation_counts["snps"]:
+        lines.append("SNPs x{}".format(mutation_counts["snps"]))
+    if mutation_counts["insertions"]:
+        lines.append("Insertions x{}".format(mutation_counts["insertions"]))
+    return lines
 
 def game(stdscr):
     curses.curs_set(0)
@@ -259,13 +267,7 @@ def game(stdscr):
     fall_delay = base_fall_delay
 
     if any(mutation_counts.values()):
-        lines = ["! Mutations Detected !"]
-        if mutation_counts["deletions"]:
-            lines.append(f"Deletions x{mutation_counts["deletions"]}")
-        if mutation_counts["snps"]:
-            lines.append(f"SNPs x{mutation_counts["snps"]}")
-        if mutation_counts["insertions"]:
-            lines.append(f"Insertions x{mutation_counts["insertions"]}")
+        lines = mutation_warning(mutation_counts)
         blink_message(stdscr, lines, 3)
         last_tick = time.time()
 
@@ -298,13 +300,7 @@ def game(stdscr):
             cursor = 0
             edits_remaining = sum(mutation_counts.values())
             if any(mutation_counts.values()):
-                lines = ["! Mutations Detected !"]
-                if mutation_counts["deletions"]:
-                    lines.append(f"Deletions x{mutation_counts["deletions"]}")
-                if mutation_counts["snps"]:
-                    lines.append(f"SNPs x{mutation_counts["snps"]}")
-                if mutation_counts["insertions"]:
-                    lines.append(f"Insertions x{mutation_counts["insertions"]}")
+                lines = mutation_warning(mutation_counts)
                 blink_message(stdscr, lines, 3)
                 last_tick = time.time()
 
