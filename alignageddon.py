@@ -263,7 +263,7 @@ def game(stdscr):
     mode = "move"  # move, edit_top
     cursor = 0
     last_tick = time.time()
-    base_fall_delay = 0.5
+    base_fall_delay = 0.7
     fall_delay = base_fall_delay
 
     if any(mutation_counts.values()):
@@ -295,7 +295,7 @@ def game(stdscr):
             falling_seq, _, mutation_counts = new_falling_segment(base_seq, seg_len)
             fall_x = centered_fall_x(play_width, len(falling_seq))
             fall_delay = base_fall_delay
-            base_fall_delay = max(0.005, fall_delay * 0.8)
+            base_fall_delay = max(0.005, fall_delay * 0.9)
             mode = "move"
             cursor = 0
             edits_remaining = sum(mutation_counts.values())
